@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "cli": "cargo build -p cli && echo && ./target/debug/cli",
+    "daemon": "cargo build -p mprocd && echo && ./target/debug/mprocd"
+  },
+  "packageManager": "bun@1.0.29"
+}
