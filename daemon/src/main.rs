@@ -20,15 +20,18 @@ async fn main() -> Result<(), String> {
 
     let mut servers = start_servers(&global_data).unwrap();
 
-    ctrlc::set_handler(move || tx.send(DaemonEvent::StopDaemon).unwrap()).unwrap();
+    let ctrlc_tx = tx.clone();
+    ctrlc::set_handler(move || ctrlc_tx.send(DaemonEvent::StopDaemon).unwrap()).unwrap();
 
-    let _sock_future = start_sock();
+    let sock_tx = tx.clone();
+    let sock_future = start_sock(sock_tx);
 
     loop {
         match rx.recv().await {
             Some(event) => {
                 match event {
                     DaemonEvent::StopDaemon => {
+                        sock_future.abort();
                         for server in servers.iter_mut() {
                             server.process.kill().unwrap();
                         }

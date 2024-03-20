@@ -11,8 +11,10 @@ pub fn start_servers(global_data: &GlobalData) -> Result<Vec<RunningServer>, Str
     let mut running_servers = vec![];
 
     for server in global_data.servers.iter() {
-        let running_server = start_server(server)?;
-        running_servers.push(running_server);
+        if server.autostart {
+            let running_server = start_server(server)?;
+            running_servers.push(running_server);
+        }
     }
 
     Ok(running_servers)

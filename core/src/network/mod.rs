@@ -1,11 +1,12 @@
 use std::io::Write;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
+
 use directories::ProjectDirs;
 
-pub enum PacketId {
-    Identify = 0x00,
-}
+use crate::network::packets::{IdentifyPacket, Packet, RawPacket};
+
+pub mod packets;
 
 pub struct DaemonSockClient {
     stream: UnixStream,
@@ -17,22 +18,24 @@ impl DaemonSockClient {
 
         let stream = UnixStream::connect(sock_path).expect("Failed to connect to daemon socket");
 
-        let mut dsc = DaemonSockClient {
-            stream,
-        };
+        let mut dsc = DaemonSockClient { stream };
 
-        dsc.write_packet(PacketId::Identify, b"CLI".to_vec());
+        dsc.write_packet(Box::new(IdentifyPacket {
+            client_type: "daemon".to_string(),
+        }));
 
         dsc
     }
 
-    pub fn write_packet(&mut self, id: PacketId, packet: Vec<u8>) {
-        let mut buf: Vec<u8> = vec![];
-        buf.push((packet.len()) as u8 + 1u8);
-        buf.push(id as u8);
-        buf.extend(packet);
-
-        self.stream.write_all(&buf).expect("Failed to write packet to daemon");
+    pub fn write_packet(&mut self, packet: Box<dyn Packet>) {
+        let serialized = packet.serialize();
+        let packet = RawPacket {
+            id: packet.get_id() as u8,
+            data: serialized,
+        };
+        self.stream
+            .write_all(&packet.serialize())
+            .expect("Failed to write to daemon socket");
     }
 
     pub fn get_path() -> Result<PathBuf, &'static str> {
@@ -45,7 +48,7 @@ impl DaemonSockClient {
                     }
 
                     dir
-                },
+                }
                 None => {
                     let data_dir = proj_dirs.data_dir();
 
@@ -65,4 +68,3 @@ impl DaemonSockClient {
         return Err("Failed to get daemon sock path");
     }
 }
-
